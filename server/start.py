@@ -279,17 +279,6 @@ def execute_code_internal(current_user):
         
         return jsonify(response_data), status_code
     
-    except SecurityError as e:
-        app.logger.warning(f"Security violation by user {current_user.username}: {str(e)}")
-        return jsonify({
-            'success': False,
-            'status': 'error',
-            'output': '',
-            'error': f'Restricted operation detected: {str(e)}',
-            'execution_time': 0,
-            'user_id': current_user.id
-        }), 403  # Forbidden
-    
     except Exception as e:
         app.logger.error(f"Unexpected error in execute_code: {str(e)}")
         return jsonify({
