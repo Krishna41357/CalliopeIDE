@@ -54,11 +54,12 @@ app.config['JSON_SORT_KEYS'] = False
 cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',')
 CORS(app, resources={r"/*": {"origins": cors_origins}}, supports_credentials=True)
 
-# Ensure database directory exists
-ensure_database_directory()
-
 # Initialize database and register blueprints
 init_db(app)
+
+# Ensure database directory exists after database initialization, within app context
+with app.app_context():
+    ensure_database_directory()
 app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(project_bp)
