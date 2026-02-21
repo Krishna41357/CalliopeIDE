@@ -17,6 +17,11 @@ from .validators import (
     validate_login_data,
     sanitize_input
 )
+from .agent_validators import (
+    validate_agent_input,
+    sanitize_agent_input,
+    is_dangerous_command
+)
 
 __all__ = [
     'generate_access_token',
@@ -29,5 +34,8 @@ __all__ = [
     'validate_password',
     'validate_registration_data',
     'validate_login_data',
-    'sanitize_input'
+    'sanitize_input',
+    'validate_agent_input',
+    'sanitize_agent_input',
+    'is_dangerous_command'
 ]
