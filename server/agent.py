@@ -128,7 +128,7 @@ def execute_command(cmd: str) -> str:
             return f"ERROR: {result.stderr}\nOUTPUT: {result.stdout}"
         return result.stdout
     except subprocess.TimeoutExpired:
-        return "COMMAND TIMED OUT (300s limit)"
+        return "COMMAND TIMED OUT (30s limit)"
     except Exception as e:
         return f"ERROR: {str(e)}"
 
