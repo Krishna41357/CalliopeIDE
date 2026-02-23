@@ -116,7 +116,11 @@ def execute_command(cmd: str) -> str:
         print(blocked_msg)
         return blocked_msg
 
-    print(f"Agent is executing command ```{cmd.replace("`", "'")}```")
+    print(f"Agent is executing command ```{cmd.replace('`', \"'\")}```")
+
+    if len(cmd) > 1000:
+        return "ERROR: Command too long (max 1000 characters)"
+
     try:
         result = subprocess.run(cmd, shell=True, text=True,
                                 capture_output=True, timeout=300)
@@ -401,14 +405,13 @@ Remember: You are a SELF-SUFFICIENT AUTONOMOUS AGENT. Explore, understand, and s
 def main():
     global stop_stream
 
-    # Configure model with reduced max_output_tokens to avoid truncation issues
     model = genai.GenerativeModel(
         model_name="gemini-2.0-flash",
         generation_config={
             "temperature": 0.2,
             "top_p": 0.95,
             "top_k": 40,
-            "max_output_tokens": 30720,  # Reduced to avoid truncation
+            "max_output_tokens": 30720,
             "response_mime_type": "application/json",
         }
     )
@@ -417,7 +420,6 @@ def main():
 
     system_prompt = get_prompt()
 
-    # Initial system prompt with clearer formatting instructions
     system_prompt_intro = """
 IMPORTANT: When you respond, you MUST keep your responses concise to avoid truncation. 
 Limit "thinking" to 100 words and "message" to 150 words maximum.
@@ -444,7 +446,6 @@ Always respond in valid JSON format without any text outside the JSON structure.
         print("Agent is working on your task now")
 
         try:
-            # Break down the task initially with a focus on brevity
             initial_prompt = f"""
 Task: {user_input}
 
@@ -460,7 +461,6 @@ REMEMBER: Keep your response VERY BRIEF to avoid truncation.
                 response_text = response.text
 
                 try:
-                    # Use our improved parsing function with error recovery
                     parsed, new_response = handle_model_response(response_text, chat)
                     if new_response:
                         response = new_response
@@ -483,12 +483,11 @@ REMEMBER: Keep your response VERY BRIEF to avoid truncation.
                                 cmd = cmd[1:-1]
 
                             cmd_output = execute_command(cmd)
-                            print(f"CLI Output: ```{cmd_output[:1000].replace("`", "'")}```")
+                            print(f"CLI Output: ```{cmd_output[:1000].replace('`', \"'\")}```")
                             all_outputs.append(f"Command: {cmd}\nOutput: {cmd_output}")
 
-                        # Limit the amount of output sent back to the model to avoid context overflow
                         full_output = "\n\n".join(all_outputs)
-                        if len(full_output) > 12000:  # If output is very large
+                        if len(full_output) > 12000:
                             truncated_output = f"Command outputs are very large ({len(full_output)} chars). Here's the first and last parts:\n\n"
                             truncated_output += full_output[:5000] + "\n\n[...output truncated...]\n\n" + full_output[-5000:]
                             full_output = truncated_output
@@ -529,7 +528,7 @@ REMEMBER: Keep your response VERY BRIEF to avoid truncation.
                         "5. need_user_input=false\n\n" +
                         "Keep your response under 500 characters total."
                     )
-            stop_stream=True
+            stop_stream = True
         except Exception as e:
             print(f"Error: {str(e)}")
             print("Error Occured but all is good")

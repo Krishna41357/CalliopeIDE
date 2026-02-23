@@ -22,6 +22,12 @@ from .agent_validators import (
     sanitize_agent_input,
     is_dangerous_command
 )
+from .secure_execution import (
+    secure_execute,
+    SecurityError,
+    ExecutionTimeoutError,
+    MemoryLimitError
+)
 
 __all__ = [
     'generate_access_token',
@@ -37,5 +43,9 @@ __all__ = [
     'sanitize_input',
     'validate_agent_input',
     'sanitize_agent_input',
-    'is_dangerous_command'
+    'is_dangerous_command',
+    'secure_execute',
+    'SecurityError',
+    'ExecutionTimeoutError',
+    'MemoryLimitError'
 ]
