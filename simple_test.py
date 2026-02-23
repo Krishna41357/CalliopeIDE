@@ -2,8 +2,8 @@ import sys
 import os
 sys.path.append('.')
 
-# Direct import to avoid dependency issues
-exec(open('server/utils/secure_execution.py').read())
+# Direct import of secure_execute without executing module as __main__
+from server.utils.secure_execution import secure_execute
 
 # Test simple code execution
 result = secure_execute("print('Hello World')")

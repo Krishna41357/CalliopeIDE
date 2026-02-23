@@ -25,7 +25,6 @@ except ImportError:
     RESOURCE_AVAILABLE = False
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Security constants
@@ -124,8 +123,19 @@ def validate_code_safety(code: str) -> None:
                 if node.func.id in DANGEROUS_BUILTINS:
                     raise SecurityError(f"Call to restricted builtin: {node.func.id}")
             elif isinstance(node.func, ast.Attribute):
-                if hasattr(node.func.value, 'id') and node.func.value.id in DANGEROUS_IMPORTS:
-                    raise SecurityError(f"Call to restricted module function: {node.func.value.id}.{node.func.attr}")
+                # Calls like module.func(...)
+                if isinstance(node.func.value, ast.Name):
+                    base_name = node.func.value.id
+                    # Block calls to functions from dangerous modules, e.g., os.system(...)
+                    if base_name in DANGEROUS_IMPORTS:
+                        raise SecurityError(
+                            f"Call to restricted module function: {base_name}.{node.func.attr}"
+                        )
+                    # Block access to dangerous builtins via the builtins module, e.g., builtins.open(...)
+                    if base_name == "builtins" and node.func.attr in DANGEROUS_BUILTINS:
+                        raise SecurityError(
+                            f"Call to restricted builtin via builtins: {base_name}.{node.func.attr}"
+                        )
 
 
 def set_memory_limit():
