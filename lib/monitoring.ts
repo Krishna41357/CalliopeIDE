@@ -22,14 +22,15 @@ export function initSentry() {
 
   try {
     // Dynamic import to avoid bundling if not used
-    import('@sentry/nextjs').then((Sentry) => {
+    // @ts-ignore - Sentry is an optional dependency
+    import('@sentry/nextjs').then((Sentry: any) => {
       Sentry.init({
         dsn: sentryDsn,
         environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || 'production',
         tracesSampleRate: parseFloat(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || '0.1'),
 
         // Don't send PII
-        beforeSend(event) {
+        beforeSend(event: any) {
           // Remove sensitive data
           if (event.request) {
             delete event.request.cookies;
@@ -46,7 +47,7 @@ export function initSentry() {
 
       sentryInitialized = true;
       console.info('Sentry frontend tracking initialized');
-    }).catch((error) => {
+    }).catch((error: any) => {
       console.warn('Failed to load Sentry SDK:', error);
     });
   } catch (error) {
@@ -61,9 +62,10 @@ export function trackError(error: Error, context?: Record<string, any>) {
   console.error('Error:', error, context);
 
   if (sentryInitialized && typeof window !== 'undefined') {
-    import('@sentry/nextjs').then((Sentry) => {
+    // @ts-ignore - Sentry is an optional dependency
+    import('@sentry/nextjs').then((Sentry: any) => {
       if (context) {
-        Sentry.withScope((scope) => {
+        Sentry.withScope((scope: any) => {
           Object.entries(context).forEach(([key, value]) => {
             scope.setExtra(key, value);
           });
@@ -82,10 +84,17 @@ export function trackError(error: Error, context?: Record<string, any>) {
  * Track a custom event/message
  */
 export function trackEvent(message: string, level: 'info' | 'warning' | 'error' = 'info') {
-  console[level](message);
+  if (level === 'info') {
+    console.info(message);
+  } else if (level === 'warning') {
+    console.warn(message);
+  } else {
+    console.error(message);
+  }
 
   if (sentryInitialized && typeof window !== 'undefined') {
-    import('@sentry/nextjs').then((Sentry) => {
+    // @ts-ignore - Sentry is an optional dependency
+    import('@sentry/nextjs').then((Sentry: any) => {
       Sentry.captureMessage(message, level);
     }).catch(() => {
       // Silently fail if Sentry not available
