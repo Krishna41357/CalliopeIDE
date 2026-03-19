@@ -3,7 +3,6 @@
  * Provides consistent error handling and loading UX across the app
  */
 import { useState, useCallback } from 'react';
-import { trackError } from '@/lib/monitoring';
 
 export interface ApiState<T> {
   data: T | null;
@@ -79,9 +78,6 @@ export function useApi<T = any>(url: string, options: ApiOptions = {}) {
         const errorMessage = error.message;
 
         setState({ data: null, error: errorMessage, loading: false });
-
-        // Track error for monitoring
-        trackError(error, { url, method: options.method || 'GET' });
 
         if (options.onError) {
           options.onError(errorMessage);
@@ -164,8 +160,6 @@ export function useFormSubmit(url: string, options: ApiOptions = {}) {
 
         setError(errorMessage);
         setLoading(false);
-
-        trackError(error, { url, method: options.method || 'POST' });
 
         if (options.onError) {
           options.onError(errorMessage);
