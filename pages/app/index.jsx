@@ -13,15 +13,19 @@ import {
     MessageSquare,
     Send,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Zap
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import ContractInteraction from "@/components/ContractInteraction"
 
 export default function IDEApp() {
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [chatOpen, setChatOpen] = useState(true)
     const [message, setMessage] = useState("")
     const [isMobile, setIsMobile] = useState(false)
+    // "explorer" | "contract"
+    const [sidebarTab, setSidebarTab] = useState("explorer")
 
     // Check if we're on mobile
     useEffect(() => {
@@ -90,7 +94,30 @@ export default function IDEApp() {
                     >
                         {/* Sidebar Header */}
                         <div className="flex items-center justify-between p-4 border-b border-gray-700">
-                            <h2 className="text-lg font-semibold">Explorer</h2>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setSidebarTab("explorer")}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                        sidebarTab === "explorer"
+                                            ? "bg-gray-700 text-white"
+                                            : "text-gray-400 hover:text-white"
+                                    }`}
+                                >
+                                    <FolderOpen className="w-3 h-3" />
+                                    Explorer
+                                </button>
+                                <button
+                                    onClick={() => setSidebarTab("contract")}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                        sidebarTab === "contract"
+                                            ? "bg-gray-700 text-white"
+                                            : "text-gray-400 hover:text-white"
+                                    }`}
+                                >
+                                    <Zap className="w-3 h-3" />
+                                    Contract
+                                </button>
+                            </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -101,30 +128,39 @@ export default function IDEApp() {
                             </Button>
                         </div>
 
-                        {/* File Explorer */}
-                        <div className="flex-1 overflow-y-auto p-4">
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
-                                    <FolderOpen className="w-4 h-4 text-blue-400" />
-                                    <span className="text-sm">src/</span>
+                        {/* Sidebar Body */}
+                        <div className="flex-1 overflow-y-auto">
+                            {sidebarTab === "explorer" && (
+                                <div className="p-4 space-y-2">
+                                    <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
+                                        <FolderOpen className="w-4 h-4 text-blue-400" />
+                                        <span className="text-sm">src/</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 ml-4 hover:bg-gray-700 rounded cursor-pointer">
+                                        <span className="w-4 h-4 text-center text-xs">📄</span>
+                                        <span className="text-sm">contract.rs</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 ml-4 hover:bg-gray-700 rounded cursor-pointer">
+                                        <span className="w-4 h-4 text-center text-xs">📄</span>
+                                        <span className="text-sm">lib.rs</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
+                                        <FolderOpen className="w-4 h-4 text-blue-400" />
+                                        <span className="text-sm">tests/</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
+                                        <span className="w-4 h-4 text-center text-xs">📄</span>
+                                        <span className="text-sm">Cargo.toml</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 p-2 ml-4 hover:bg-gray-700 rounded cursor-pointer">
-                                    <span className="w-4 h-4 text-center text-xs">📄</span>
-                                    <span className="text-sm">contract.rs</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-2 ml-4 hover:bg-gray-700 rounded cursor-pointer">
-                                    <span className="w-4 h-4 text-center text-xs">📄</span>
-                                    <span className="text-sm">lib.rs</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
-                                    <FolderOpen className="w-4 h-4 text-blue-400" />
-                                    <span className="text-sm">tests/</span>
-                                </div>
-                                <div className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
-                                    <span className="w-4 h-4 text-center text-xs">📄</span>
-                                    <span className="text-sm">Cargo.toml</span>
-                                </div>
-                            </div>
+                            )}
+
+                            {sidebarTab === "contract" && (
+                                <ContractInteraction
+                                    sessionId={null}
+                                    authToken={null}
+                                />
+                            )}
                         </div>
 
                         {/* Sidebar Footer */}
