@@ -18,6 +18,7 @@ from server.models import User, RefreshToken, Session, ChatHistory, ProjectMetad
 from server.routes import auth_bp
 from server.routes.chat_routes import chat_bp
 from server.routes.soroban_routes import soroban_bp
+from server.routes.template_routes import templates_bp
 from server.routes.project_routes import project_bp
 from server.routes.soroban_deploy import soroban_deploy_bp
 from server.routes.soroban_wallet import wallet_bp
@@ -80,6 +81,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(project_bp)
 app.register_blueprint(soroban_bp)
+app.register_blueprint(templates_bp)
 app.register_blueprint(soroban_deploy_bp)
 app.register_blueprint(wallet_bp)
 
