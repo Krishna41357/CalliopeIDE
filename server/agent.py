@@ -4,15 +4,11 @@ import subprocess
 import json
 import time
 import re
-import logging
-import uuid
 import google.generativeai as genai
 import threading
 import dataclasses
 import flask
 from flask import Response, request, stream_with_context
-
-logger = logging.getLogger('calliope-agent')
 
 from server.utils.agent_validators import (
     validate_agent_input,
@@ -171,61 +167,26 @@ def send_query():
 def execute_command(cmd: str, ctx=None) -> str:
     if is_dangerous_command(cmd):
         blocked_msg = f"BLOCKED: Command '{cmd}' matches a disallowed pattern and was not executed."
-        logger.warning(
-            'agent_command_blocked',
-            extra={'event': 'agent_command_blocked', 'command': cmd[:200]},
-        )
         if ctx: ctx_print(ctx, blocked_msg)
         return blocked_msg
 
-    if ctx: ctx_print(ctx, "Agent is executing command ```" + cmd.replace("`", "'") + "```")
+    if ctx: ctx_print(ctx, f"Agent is executing command ```{cmd.replace('`', \"'\")}```")
 
     if len(cmd) > 1000:
-        logger.warning(
-            'agent_command_too_long',
-            extra={'event': 'agent_command_too_long', 'length': len(cmd)},
-        )
         return "ERROR: Command too long (max 1000 characters)"
 
-    start = time.perf_counter()
     try:
         result = subprocess.run(cmd, shell=True, text=True,
                                 capture_output=True, timeout=300)
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
         if result.returncode != 0 and result.stderr:
-            logger.warning(
-                'agent_command_nonzero',
-                extra={
-                    'event': 'agent_command_nonzero',
-                    'command': cmd[:200],
-                    'returncode': result.returncode,
-                    'duration_ms': duration_ms,
-                },
-            )
             return f"ERROR: {result.stderr}\nOUTPUT: {result.stdout}"
-        logger.info(
-            'agent_command_ok',
-            extra={
-                'event': 'agent_command_ok',
-                'command': cmd[:200],
-                'returncode': result.returncode,
-                'duration_ms': duration_ms,
-            },
-        )
         return result.stdout
     except subprocess.TimeoutExpired:
-        logger.error(
-            'agent_command_timeout',
-            extra={'event': 'agent_command_timeout', 'command': cmd[:200]},
-        )
         return "COMMAND TIMED OUT (30s limit)"
     except Exception as e:
-        logger.error(
-            'agent_command_error',
-            exc_info=True,
-            extra={'event': 'agent_command_error', 'command': cmd[:200], 'error': str(e)},
-        )
         return f"ERROR: {str(e)}"
+
+
 def extract_json(text):
     """
     Much more robust JSON extraction that handles truncated or malformed responses.
@@ -501,11 +462,6 @@ Remember: You are a SELF-SUFFICIENT AUTONOMOUS AGENT. Explore, understand, and s
 
 
 def main(ctx):
-    session_id = str(uuid.uuid4())
-    logger.info(
-        'agent_session_start',
-        extra={'event': 'agent_session_start', 'agent_session_id': session_id},
-    )
     model = genai.GenerativeModel(
         model_name="gemini-2.0-flash",
         generation_config={
@@ -539,24 +495,12 @@ Always respond in valid JSON format without any text outside the JSON structure.
         user_input = ctx_input(ctx, "1")
 
         if user_input.lower() in ['exit', 'quit']:
-            logger.info(
-                'agent_session_end',
-                extra={'event': 'agent_session_end', 'agent_session_id': session_id, 'reason': 'user_exit'},
-            )
             ctx_print(ctx, "Goodbye!")
             break
 
         task_complete = False
         need_user_input = False
 
-        logger.info(
-            'agent_task_start',
-            extra={
-                'event': 'agent_task_start',
-                'agent_session_id': session_id,
-                'input_length': len(user_input),
-            },
-        )
         ctx_print(ctx, "Agent is working on your task now")
 
         try:
@@ -590,7 +534,7 @@ Always respond in valid JSON format without any text outside the JSON structure.
                                 cmd = cmd[1:-1]
 
                             cmd_output = execute_command(cmd, ctx)
-                            ctx_print(ctx, "CLI Output: ```" + cmd_output[:1000].replace("`", "'") + "```")
+                            ctx_print(ctx, f"CLI Output: ```{cmd_output[:1000].replace('`', \"'\")}```")
                             all_outputs.append(f"Command: {cmd}\nOutput: {cmd_output}")
 
                         full_output = "\n\n".join(all_outputs)
@@ -624,11 +568,6 @@ Always respond in valid JSON format without any text outside the JSON structure.
                     time.sleep(0.5)
 
                 except Exception as e:
-                    logger.error(
-                        'agent_iteration_error',
-                        exc_info=True,
-                        extra={'event': 'agent_iteration_error', 'agent_session_id': session_id, 'error': str(e)},
-                    )
                     ctx_print(ctx, f"Error in processing response: {str(e)}")
 
                     response = chat.send_message(
@@ -640,18 +579,9 @@ Always respond in valid JSON format without any text outside the JSON structure.
                         "5. need_user_input=false\n\n" +
                         "Keep your response under 500 characters total."
                     )
-            logger.info(
-                'agent_task_complete',
-                extra={'event': 'agent_task_complete', 'agent_session_id': session_id},
-            )
             with ctx.lock:
                 ctx.stop_stream = True
         except Exception as e:
-            logger.error(
-                'agent_task_error',
-                exc_info=True,
-                extra={'event': 'agent_task_error', 'agent_session_id': session_id, 'error': str(e)},
-            )
             ctx_print(ctx, f"Error: {str(e)}")
             ctx_print(ctx, "Error Occured but all is good")
 

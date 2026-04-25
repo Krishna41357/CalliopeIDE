@@ -54,7 +54,7 @@ def create_project(current_user):
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
-        logger.exception("Create project error", extra={'event': 'project_create_error', 'user_id': current_user.id})
+        logger.exception("Create project error")
         capture_exception(e, {'route': 'project.create_project', 'user_id': current_user.id})
         return jsonify({'success': False, 'error': 'An error occurred while creating the project'}), 500
 
@@ -91,7 +91,7 @@ def list_projects(current_user):
         }), 200
 
     except Exception as e:
-        logger.exception("List projects error", extra={'event': 'project_list_error', 'user_id': current_user.id})
+        logger.exception("List projects error")
         capture_exception(e, {'route': 'project.list_projects', 'user_id': current_user.id})
         return jsonify({'success': False, 'error': 'An error occurred while retrieving projects'}), 500
 
@@ -111,7 +111,7 @@ def get_project(current_user, project_id):
         return jsonify({'success': True, 'project': project.to_dict(include_path=True)}), 200
 
     except Exception as e:
-        logger.exception("Get project error", extra={'event': 'project_get_error', 'user_id': current_user.id})
+        logger.exception("Get project error")
         capture_exception(e, {'route': 'project.get_project', 'user_id': current_user.id, 'project_id': project_id})
         return jsonify({'success': False, 'error': 'An error occurred while retrieving the project'}), 500
 
@@ -156,7 +156,7 @@ def update_project(current_user, project_id):
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
-        logger.exception("Update project error", extra={'event': 'project_update_error', 'user_id': current_user.id})
+        logger.exception("Update project error")
         capture_exception(e, {'route': 'project.update_project', 'user_id': current_user.id, 'project_id': project_id})
         return jsonify({'success': False, 'error': 'An error occurred while updating the project'}), 500
 
@@ -177,7 +177,7 @@ def update_project_access(current_user, project_id):
         return jsonify({'success': True, 'message': 'Project access updated', 'project': project.to_dict()}), 200
 
     except Exception as e:
-        logger.exception("Update project access error", extra={'event': 'project_access_update_error', 'user_id': current_user.id})
+        logger.exception("Update project access error")
         capture_exception(e, {'route': 'project.update_project_access', 'user_id': current_user.id, 'project_id': project_id})
         return jsonify({'success': False, 'error': 'An error occurred while updating project access'}), 500
 
@@ -198,7 +198,7 @@ def deactivate_project(current_user, project_id):
         return jsonify({'success': True, 'message': 'Project deactivated successfully', 'project': project.to_dict()}), 200
 
     except Exception as e:
-        logger.exception("Deactivate project error", extra={'event': 'project_deactivate_error', 'user_id': current_user.id})
+        logger.exception("Deactivate project error")
         capture_exception(e, {'route': 'project.deactivate_project', 'user_id': current_user.id, 'project_id': project_id})
         return jsonify({'success': False, 'error': 'An error occurred while deactivating the project'}), 500
 
@@ -214,7 +214,7 @@ def get_project_by_name(current_user, project_name):
         return jsonify({'success': True, 'project': project.to_dict(include_path=True)}), 200
 
     except Exception as e:
-        logger.exception("Get project by name error", extra={'event': 'project_get_by_name_error', 'user_id': current_user.id})
+        logger.exception("Get project by name error")
         capture_exception(e, {'route': 'project.get_project_by_name', 'user_id': current_user.id})
         return jsonify({'success': False, 'error': 'An error occurred while retrieving the project'}), 500
 
@@ -239,7 +239,7 @@ def get_project_types(current_user):
         }), 200
 
     except Exception as e:
-        logger.exception("Get project types error", extra={'event': 'project_types_error', 'user_id': current_user.id})
+        logger.exception("Get project types error")
         capture_exception(e, {'route': 'project.get_project_types', 'user_id': current_user.id})
         return jsonify({'success': False, 'error': 'An error occurred while retrieving project types'}), 500
 
@@ -344,7 +344,7 @@ def get_project_context(current_user, project_id):
         }), 200
 
     except Exception as e:
-        logger.exception("Get project context error", extra={'event': 'project_context_error', 'user_id': current_user.id})
+        logger.exception("Get project context error")
         capture_exception(e, {
             'route': 'project.get_project_context',
             'user_id': current_user.id,
@@ -376,7 +376,7 @@ def invalidate_project_context(current_user, project_id):
         return jsonify({'success': True, 'message': 'Context cache invalidated'}), 200
 
     except Exception as e:
-        logger.exception("Invalidate context error", extra={'event': 'project_context_invalidate_error', 'user_id': current_user.id})
+        logger.exception("Invalidate context error")
         capture_exception(e, {
             'route': 'project.invalidate_project_context',
             'user_id': current_user.id,
@@ -442,7 +442,7 @@ def save_project_file(current_user, project_id):
         }), 200
 
     except Exception as e:
-        logger.exception("Save project file error", extra={'event': 'project_file_save_error', 'user_id': current_user.id})
+        logger.exception("Save project file error")
         capture_exception(e, {
             'route': 'project.save_project_file',
             'user_id': current_user.id,
@@ -491,7 +491,7 @@ def read_project_file(current_user, project_id):
         }), 200
 
     except Exception as e:
-        logger.exception("Read project file error", extra={'event': 'project_file_read_error', 'user_id': current_user.id})
+        logger.exception("Read project file error")
         capture_exception(e, {
             'route': 'project.read_project_file',
             'user_id': current_user.id,

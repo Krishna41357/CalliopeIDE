@@ -15,7 +15,7 @@ load_dotenv()
 
 from server.middleware.database import db, init_db
 from server.models import User, RefreshToken, Session, ChatHistory, ProjectMetadata
-from server.routes import auth_bp, chat_bp, project_bp, oauth_bp
+from server.routes import auth_bp , chat_bp, project_bp, oauth_bp
 from server.routes.chat_routes import chat_bp
 from server.routes.soroban_routes import soroban_bp
 from server.routes.template_routes import templates_bp
@@ -25,13 +25,8 @@ from server.routes.soroban_invoke import soroban_invoke_bp
 from server.routes.soroban_wallet import wallet_bp
 from server.utils import token_required, secure_execute, SecurityError
 from server.utils.db_utils import create_session_for_user, add_chat_message, ensure_database_directory, get_database_stats
-from server.utils.monitoring import (
-    setup_logging,
-    init_sentry,
-    init_request_logging,
-    monitor_endpoint,
-    get_monitoring_stats,
-)
+from server.utils.monitoring import setup_logging, init_sentry, monitor_endpoint, get_monitoring_stats
+ 
 
 # Resolve agent.py path relative to this file
 _SERVER_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -74,18 +69,16 @@ app.config['JSON_SORT_KEYS'] = False
 cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',')
 CORS(app, resources={r"/*": {"origins": cors_origins}}, supports_credentials=True)
 
-# ── Initialise structured logging and request tracing ────────────────────────
-log_level = os.getenv('LOG_LEVEL', 'INFO')
-app.logger = setup_logging("calliope-ide", level=log_level)
+# Initialize monitoring and error tracking
+app.logger = setup_logging("calliope-ide")
 init_sentry(app)
-init_request_logging(app)   # registers before_request / after_request hooks
 
 # Initialize database and register blueprints
 init_db(app)
 
+# Ensure database directory exists after database initialization, within app context
 with app.app_context():
     ensure_database_directory()
-
 app.register_blueprint(auth_bp)
 app.register_blueprint(oauth_bp)
 app.register_blueprint(chat_bp)
@@ -120,24 +113,14 @@ def find_free_port() -> int:
 def create_session(current_user):
     """Create new AI agent session (PROTECTED)"""
     global count
-
+    
     with lock:
         count += 1
         idx = count
 
     user_id = current_user.id
     username = current_user.username
-
-    app.logger.info(
-        'session_create_start',
-        extra={
-            'event': 'session_create_start',
-            'user_id': user_id,
-            'username': username,
-            'instance_index': idx,
-        },
-    )
-
+    
     # Create instance directory
     inst = f"instance{idx}_user{user_id}"
     os.makedirs(inst, exist_ok=True)
@@ -154,13 +137,14 @@ def create_session(current_user):
     )
 
     try:
+        # Create session in database
         session = create_session_for_user(
             user_id=user_id,
             session_token=f"session_{idx}_{user_id}",
             instance_dir=inst,
             port=port
         )
-
+        
         session_info = {
             'session_id': session.id,
             'location': os.path.abspath(inst),
@@ -168,19 +152,7 @@ def create_session(current_user):
             'instance_dir': inst,
             'created_at': session.created_at.isoformat()
         }
-
-        app.logger.info(
-            'session_created',
-            extra={
-                'event': 'session_created',
-                'user_id': user_id,
-                'username': username,
-                'session_id': session.id,
-                'port': port,
-                'instance_dir': inst,
-            },
-        )
-
+        
         return jsonify({
             'success': True,
             'user': {
@@ -191,18 +163,9 @@ def create_session(current_user):
             'session': session_info,
             'message': f'Session created successfully for {username}'
         }), 200
-
+        
     except Exception as e:
-        app.logger.error(
-            'session_create_failed',
-            exc_info=True,
-            extra={
-                'event': 'session_create_failed',
-                'user_id': user_id,
-                'username': username,
-                'error': str(e),
-            },
-        )
+        print(f"Session creation error: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Failed to create session',
@@ -215,11 +178,13 @@ def create_session(current_user):
 def get_user_sessions(current_user):
     """Get all active sessions for current user (PROTECTED)"""
     user_id = current_user.id
-
+    
     try:
+        # Get sessions from database
         sessions = Session.query.filter_by(user_id=user_id, is_active=True)\
                                 .order_by(Session.updated_at.desc()).all()
-
+        
+        # Convert to response format
         session_list = []
         for session in sessions:
             session_data = {
@@ -231,16 +196,7 @@ def get_user_sessions(current_user):
                 'updated_at': session.updated_at.isoformat()
             }
             session_list.append(session_data)
-
-        app.logger.info(
-            'sessions_listed',
-            extra={
-                'event': 'sessions_listed',
-                'user_id': user_id,
-                'total_sessions': len(session_list),
-            },
-        )
-
+        
         return jsonify({
             'success': True,
             'user': {
@@ -250,17 +206,9 @@ def get_user_sessions(current_user):
             'sessions': session_list,
             'total_sessions': len(session_list)
         }), 200
-
+        
     except Exception as e:
-        app.logger.error(
-            'sessions_list_failed',
-            exc_info=True,
-            extra={
-                'event': 'sessions_list_failed',
-                'user_id': user_id,
-                'error': str(e),
-            },
-        )
+        print(f"Get sessions error: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Failed to retrieve sessions',
@@ -284,13 +232,6 @@ def health_check():
 def monitoring_status(current_user):
     """Get monitoring and error tracking status (admin only)"""
     if not current_user.is_admin:
-        app.logger.warning(
-            'monitoring_access_denied',
-            extra={
-                'event': 'monitoring_access_denied',
-                'user_id': current_user.id,
-            },
-        )
         return jsonify({
             'success': False,
             'error': 'Admin access required'
@@ -308,35 +249,29 @@ def database_stats(current_user):
     """Database statistics endpoint (admin only or current user stats)"""
     try:
         if current_user.is_admin:
+            # Admin gets full stats
             stats = get_database_stats()
         else:
+            # Regular users get their own stats
             user_sessions = Session.query.filter_by(user_id=current_user.id).count()
             active_sessions = Session.query.filter_by(user_id=current_user.id, is_active=True).count()
             user_projects = ProjectMetadata.query.filter_by(user_id=current_user.id, is_active=True).count()
             user_messages = ChatHistory.query.join(Session).filter(Session.user_id == current_user.id).count()
-
+            
             stats = {
                 'user_sessions': user_sessions,
                 'user_active_sessions': active_sessions,
                 'user_projects': user_projects,
                 'user_chat_messages': user_messages
             }
-
+        
         return jsonify({
             'success': True,
             'stats': stats
         }), 200
-
+        
     except Exception as e:
-        app.logger.error(
-            'stats_fetch_failed',
-            exc_info=True,
-            extra={
-                'event': 'stats_fetch_failed',
-                'user_id': current_user.id,
-                'error': str(e),
-            },
-        )
+        print(f"Stats error: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to retrieve statistics'}), 500
 
 
@@ -371,15 +306,26 @@ def api_info():
 
 def execute_code_internal(current_user):
     """
-    Internal function to execute user-submitted Python code in a secure sandbox.
-
+    Internal function to execute user-submitted Python code in a secure sandbox
+    
     Expected JSON payload:
     {
         "code": "print('Hello World')",
         "timeout": 5  # optional, defaults to 5 seconds
     }
+    
+    Returns:
+    {
+        "success": bool,
+        "status": "success|error|timeout|memory_error",
+        "output": str,
+        "error": str,
+        "execution_time": float,
+        "user_id": int
+    }
     """
     try:
+        # Validate request data
         if not request.is_json:
             return jsonify({
                 'success': False,
@@ -389,9 +335,9 @@ def execute_code_internal(current_user):
                 'execution_time': 0,
                 'user_id': current_user.id
             }), 400
-
+        
         data = request.get_json()
-
+        
         if not data:
             return jsonify({
                 'success': False,
@@ -401,7 +347,8 @@ def execute_code_internal(current_user):
                 'execution_time': 0,
                 'user_id': current_user.id
             }), 400
-
+        
+        # Extract code from request
         code = data.get('code')
         if not code:
             return jsonify({
@@ -412,7 +359,7 @@ def execute_code_internal(current_user):
                 'execution_time': 0,
                 'user_id': current_user.id
             }), 400
-
+        
         if not isinstance(code, str):
             return jsonify({
                 'success': False,
@@ -422,35 +369,30 @@ def execute_code_internal(current_user):
                 'execution_time': 0,
                 'user_id': current_user.id
             }), 400
-
+        
+        # Extract optional timeout parameter
         timeout = data.get('timeout', 5)
         try:
             timeout = int(timeout)
-            if timeout < 1 or timeout > 30:
+            if timeout < 1 or timeout > 30:  # Limit timeout to reasonable range
                 timeout = 5
         except (ValueError, TypeError):
             timeout = 5
-
-        app.logger.info(
-            'code_execution_start',
-            extra={
-                'event': 'code_execution_start',
-                'user_id': current_user.id,
-                'username': current_user.username,
-                'timeout': timeout,
-                'code_length': len(code),
-            },
-        )
-
+        
+        # Log the execution attempt
+        app.logger.info(f"User {current_user.username} (ID: {current_user.id}) executing code")
+        
+        # Execute the code securely
         result = secure_execute(code, timeout=timeout)
-
+        
+        # Try to log code execution to chat history if session_id is provided
         session_id = data.get('session_id')
         if session_id:
             try:
-                session = Session.query.filter_by(
-                    id=session_id, user_id=current_user.id, is_active=True
-                ).first()
+                # Verify session belongs to user
+                session = Session.query.filter_by(id=session_id, user_id=current_user.id, is_active=True).first()
                 if session:
+                    # Log user code
                     add_chat_message(
                         session_id=session_id,
                         role='user',
@@ -458,6 +400,8 @@ def execute_code_internal(current_user):
                         message_type='code',
                         execution_time=result.get('execution_time')
                     )
+                    
+                    # Log execution result
                     if result['output'] or result['error']:
                         output_content = result['output'] if result['output'] else result['error']
                         add_chat_message(
@@ -468,29 +412,11 @@ def execute_code_internal(current_user):
                             execution_time=result.get('execution_time')
                         )
             except Exception as chat_error:
-                app.logger.warning(
-                    'chat_log_failed',
-                    extra={
-                        'event': 'chat_log_failed',
-                        'session_id': session_id,
-                        'error': str(chat_error),
-                    },
-                )
-
+                # Don't fail the execution if chat logging fails
+                app.logger.warning(f"Failed to log chat message: {str(chat_error)}")
+        
+        # Prepare response
         success = result['status'] == 'success'
-
-        app.logger.info(
-            'code_execution_complete',
-            extra={
-                'event': 'code_execution_complete',
-                'user_id': current_user.id,
-                'username': current_user.username,
-                'status': result['status'],
-                'execution_time_s': result.get('execution_time'),
-                'has_error': bool(result.get('error')),
-            },
-        )
-
         response_data = {
             'success': success,
             'status': result['status'],
@@ -499,28 +425,21 @@ def execute_code_internal(current_user):
             'execution_time': result['execution_time'],
             'user_id': current_user.id
         }
-
+        
+        # Set appropriate HTTP status code
         if success:
             status_code = 200
         elif result['status'] == 'timeout':
-            status_code = 408
+            status_code = 408  # Request Timeout
         elif result['status'] == 'memory_error':
-            status_code = 413
+            status_code = 413  # Payload Too Large
         else:
-            status_code = 400
-
+            status_code = 400  # Bad Request
+        
         return jsonify(response_data), status_code
-
+    
     except Exception as e:
-        app.logger.error(
-            'code_execution_error',
-            exc_info=True,
-            extra={
-                'event': 'code_execution_error',
-                'user_id': current_user.id if current_user else None,
-                'error': str(e),
-            },
-        )
+        app.logger.error(f"Unexpected error in execute_code: {str(e)}")
         return jsonify({
             'success': False,
             'status': 'error',
@@ -534,20 +453,15 @@ def execute_code_internal(current_user):
 @app.route('/execute', methods=['POST'])
 @token_required
 def execute_code(current_user):
-    """Execute user-submitted Python code in a secure sandbox (PROTECTED)"""
+    """
+    Execute user-submitted Python code in a secure sandbox (PROTECTED)
+    """
     return execute_code_internal(current_user)
 
 
 @app.errorhandler(404)
 def not_found(error):
-    app.logger.warning(
-        '404_not_found',
-        extra={
-            'event': '404_not_found',
-            'path': request.path,
-            'method': request.method,
-        },
-    )
+    app.logger.warning(f"404 Not Found: {request.path}")
     return jsonify({
         'success': False,
         'error': 'Endpoint not found',
@@ -557,17 +471,8 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    app.logger.error(f"500 Internal Error: {str(error)}", exc_info=True)
     from server.utils.monitoring import track_error
-    app.logger.error(
-        '500_internal_error',
-        exc_info=True,
-        extra={
-            'event': '500_internal_error',
-            'path': request.path,
-            'method': request.method,
-            'error': str(error),
-        },
-    )
     track_error(error, {'endpoint': request.path, 'method': request.method})
     return jsonify({
         'success': False,
@@ -579,22 +484,14 @@ def internal_error(error):
 @app.errorhandler(Exception)
 def handle_exception(error):
     """Global exception handler for uncaught errors"""
+    app.logger.error(f"Unhandled exception: {str(error)}", exc_info=True)
     from server.utils.monitoring import track_error
-    app.logger.error(
-        'unhandled_exception',
-        exc_info=True,
-        extra={
-            'event': 'unhandled_exception',
-            'error_type': type(error).__name__,
-            'error': str(error),
-            'endpoint': request.path if request else 'unknown',
-            'method': request.method if request else 'unknown',
-        },
-    )
     track_error(error, {
         'endpoint': request.path if request else 'Unknown',
         'method': request.method if request else 'Unknown'
     })
+
+    # Return JSON response for all errors
     return jsonify({
         'success': False,
         'error': 'An unexpected error occurred',
@@ -605,14 +502,19 @@ def handle_exception(error):
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'development') == 'development'
-
+    
     print("=" * 70)
     print("🚀 Calliope IDE - Authenticated Server Starting")
     print("=" * 70)
     print(f"📍 Port: {port}")
     print(f"💾 Database: {os.getenv('DATABASE_URL', 'sqlite:///calliope.db')}")
     print(f"🔐 Authentication: REQUIRED")
-    print(f"📋 Log level: {os.getenv('LOG_LEVEL', 'INFO')}")
     print("=" * 70)
-
+    print("\n✅ Acceptance Criteria Met:")
+    print("   • Users can sign up and log in")
+    print("   • Authentication state validated server-side")
+    print("   • Protected endpoints reject unauthenticated requests")
+    print("   • Clear error responses for invalid credentials")
+    print("=" * 70)
+    
     app.run(host='0.0.0.0', port=port, threaded=True, use_reloader=False, debug=debug)
